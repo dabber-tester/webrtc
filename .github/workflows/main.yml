@@ -1,0 +1,82 @@
+name: Build WebRTC SDK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: blacksmith-4vcpu-ubuntu-2204
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - linux
+          - android
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # =========================
+      # Cache depot_tools
+      # =========================
+      - name: Cache depot_tools
+        uses: actions/cache@v4
+        with:
+          path: ~/depot_tools
+          key: depot-tools-v1
+
+      # =========================
+      # Cache WebRTC checkout
+      # =========================
+      - name: Cache WebRTC
+        uses: actions/cache@v4
+        with:
+          path: ~/webrtc-checkout
+          key: webrtc-${{ runner.os }}-v1
+
+      # =========================
+      # Install system deps
+      # =========================
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            git python3 python3-pip curl \
+            pkg-config build-essential \
+            ninja-build clang \
+            libglib2.0-dev \
+            libpipewire-0.3-dev \
+            libx11-dev libx11-xcb-dev \
+            libasound2-dev unzip zip
+
+      # =========================
+      # Init (only if needed)
+      # =========================
+      - name: Init WebRTC (if missing)
+        run: |
+          if [ ! -d "$HOME/webrtc-checkout/src" ]; then
+            chmod +x build_webrtc.sh
+            ./build_webrtc.sh init
+          fi
+
+      # =========================
+      # Build
+      # =========================
+      - name: Build target
+        run: |
+          chmod +x build_webrtc.sh
+          ./build_webrtc.sh ${{ matrix.target }}
+
+      # =========================
+      # Upload artifacts
+      # =========================
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: webrtc-${{ matrix.target }}
+          path: ~/webrtc-checkout/release/*.zip
