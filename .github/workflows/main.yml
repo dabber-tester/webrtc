@@ -14,10 +14,13 @@ jobs:
       fail-fast: false
       matrix:
         target:
-          - linux
-          - android
+          - linux-x64
+          - android-all   # <- uses your script's grouping
 
     steps:
+      # =========================
+      # Checkout repo
+      # =========================
       - name: Checkout repo
         uses: actions/checkout@v4
 
@@ -37,7 +40,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/webrtc-checkout
-          key: webrtc-${{ runner.os }}-v1
+          key: webrtc-${{ runner.os }}-v2
 
       # =========================
       # Install system deps
@@ -55,22 +58,22 @@ jobs:
             libasound2-dev unzip zip
 
       # =========================
-      # Init (only if needed)
+      # Make script executable
       # =========================
-      - name: Init WebRTC (if missing)
-        run: |
-          if [ ! -d "$HOME/webrtc-checkout/src" ]; then
-            chmod +x build_webrtc.sh
-            ./build_webrtc.sh init
-          fi
+      - name: Prepare script
+        run: chmod +x ./build_webrtc.sh
 
       # =========================
-      # Build
+      # Init (script-controlled)
+      # =========================
+      - name: Init WebRTC
+        run: ./build_webrtc.sh init
+
+      # =========================
+      # Build (script-controlled)
       # =========================
       - name: Build target
-        run: |
-          chmod +x build_webrtc.sh
-          ./build_webrtc.sh ${{ matrix.target }}
+        run: ./build_webrtc.sh ${{ matrix.target }}
 
       # =========================
       # Upload artifacts
@@ -79,4 +82,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: webrtc-${{ matrix.target }}
-          path: ~/webrtc-checkout/release/*.zip
+          path: |
+            ~/webrtc-checkout/release/*.zip
